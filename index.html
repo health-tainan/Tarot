@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>塔羅自學互動儀表板</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tarot: {
+                            bg: '#0c0714',
+                            cardBg: '#180e29',
+                            purpleDark: '#2a1745',
+                            purple: '#6b21a8',
+                            purpleLight: '#a855f7',
+                            gold: '#f3ca65',
+                            goldLight: '#fde68a',
+                            accent: '#3b82f6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0c0714;
+            color: #f3e8ff;
+            background-image: radial-gradient(circle at 50% 0%, #2a1745 0%, #0c0714 75%);
+            min-height: 100vh;
+        }
+        
+        .card-perspective {
+            perspective: 1000px;
+        }
+        
+        .card-inner {
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-style: preserve-3d;
+        }
+        
+        .card-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-inner.is-reversed {
+            transform: rotateY(180deg) rotateZ(180deg);
+        }
+        
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* 洗牌與切牌多階段動畫 */
+        @keyframes shuffleSwirl {
+            0% { transform: rotate(0deg) scale(0.9); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(0.9); }
+        }
+
+        @keyframes cardScatterLeft {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-80px, -20px) rotate(-25deg) scale(1.05); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        @keyframes cardScatterRight {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(80px, 20px) rotate(25deg) scale(1.05); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        @keyframes pierrotTurnSelf {
+            0% { transform: rotate(0deg) scale(1); }
+            40% { transform: translateX(-40px) rotate(-90deg) scale(1.1); }
+            80% { transform: translateX(0px) rotate(-90deg) scale(1.05); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        @keyframes pierrotTurnOther {
+            0% { transform: rotate(0deg) scale(1); }
+            40% { transform: translateX(40px) rotate(90deg) scale(1.1); }
+            80% { transform: translateX(0px) rotate(90deg) scale(1.05); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        @keyframes dealFlyIn {
+            0% { opacity: 0; transform: translateY(-40px) scale(0.7); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .animate-swirl { animation: shuffleSwirl 1.2s infinite ease-in-out; }
+        .animate-scatter-left { animation: cardScatterLeft 1s infinite ease-in-out; }
+        .animate-scatter-right { animation: cardScatterRight 1s infinite ease-in-out; }
+        .animate-pierrot-self { animation: pierrotTurnSelf 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        .animate-pierrot-other { animation: pierrotTurnOther 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        .animate-deal-card { animation: dealFlyIn 0.5s ease-out forwards; }
+
+        .glow-reveal {
+            box-shadow: 0 0 25px #f3ca65, 0 0 10px #a855f7;
+            transition: box-shadow 0.6s ease;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #180e29;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6b21a8;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f3ca65;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased pb-12 selection:bg-tarot-gold selection:text-tarot-bg">
+
+    <!-- 頂部導覽列 -->
+    <header class="sticky top-0 z-40 bg-tarot-bg/80 backdrop-blur-md border-b border-tarot-purple/40 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-tarot-purple to-tarot-gold flex items-center justify-center text-tarot-bg font-bold text-xl shadow-md">
+                    <i class="fa-solid fa-eye"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-tarot-gold tracking-wide">塔羅自學互動儀表板</h1>
+                    <p class="text-xs text-purple-300">78張全系統實務．多情境解讀與練習</p>
+                </div>
+            </div>
+
+            <!-- 分頁切換頁籤 -->
+            <nav class="flex space-x-1 sm:space-x-2 bg-tarot-cardBg/80 p-1.5 rounded-xl border border-tarot-purple/30">
+                <button onclick="switchTab('lab')" id="nav-lab" class="nav-btn bg-tarot-purple text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="hidden sm:inline">抽牌實驗室</span>
+                </button>
+                <button onclick="switchTab('library')" id="nav-library" class="nav-btn text-purple-300 hover:text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-book-bookmark"></i> <span class="hidden sm:inline">牌卡百科</span>
+                </button>
+                <button onclick="switchTab('quiz')" id="nav-quiz" class="nav-btn text-purple-300 hover:text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-brain"></i> <span class="hidden sm:inline">記憶測驗</span>
+                </button>
+                <button onclick="switchTab('journal')" id="nav-journal" class="nav-btn text-purple-300 hover:text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-journal-whills"></i> <span class="hidden sm:inline">靈感筆記</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 主內容容器 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+
+        <!-- TAB 1: 抽牌實驗室 -->
+        <section id="tab-lab" class="space-y-6">
+            
+            <!-- 設定面板 -->
+            <div class="bg-tarot-cardBg/90 border border-tarot-purple/40 rounded-2xl p-5 shadow-xl space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    
+                    <!-- 1. 牌陣選擇 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-tarot-gold mb-1.5">
+                            <i class="fa-solid fa-shapes"></i> 選擇占卜牌陣
+                        </label>
+                        <select id="spread-select" onchange="changeSpread()" class="w-full bg-tarot-bg border border-tarot-purple/50 rounded-xl px-3 py-2 text-sm text-purple-100 focus:outline-none focus:border-tarot-gold">
+                            <option value="single">單張每日指引 (1張)</option>
+                            <option value="three">三張時間軸 (3張: 過去/現在/未來)</option>
+                            <option value="choice">二選一抉擇牌陣 (5張: 現況/選項A/選項B)</option>
+                            <option value="hexagram">六芒星深度牌陣 (7張: 全方位剖析)</option>
+                        </select>
+                    </div>
+
+                    <!-- 2. 占卜主題領域 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-tarot-gold mb-1.5">
+                            <i class="fa-solid fa-bullseye"></i> 占卜切換領域
+                        </label>
+                        <select id="domain-select" onchange="updateDomainContext()" class="w-full bg-tarot-bg border border-tarot-purple/50 rounded-xl px-3 py-2 text-sm text-purple-100 focus:outline-none focus:border-tarot-gold">
+                            <option value="general">🌟 綜合身心靈指引</option>
+                            <option value="love">💖 感情與戀愛關係</option>
+                            <option value="work">💼 事業與工作職場</option>
+                            <option value="study">📚 課業與考試學習</option>
+                            <option value="fortune">🔮 運勢與財務投資</option>
+                        </select>
+                    </div>
+
+                    <!-- 3. 皮耶法則 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-tarot-gold mb-1.5">
+                            <i class="fa-solid fa-arrows-left-right"></i> 占卜對象 (皮耶收牌法則)
+                        </label>
+                        <select id="reader-target" class="w-full bg-tarot-bg border border-tarot-purple/50 rounded-xl px-3 py-2 text-sm text-purple-100 focus:outline-none focus:border-tarot-gold">
+                            <option value="self">算自己 (切牌向左轉收正)</option>
+                            <option value="other">算別人 (切牌向右轉收正)</option>
+                        </select>
+                    </div>
+
+                    <!-- 4. 正逆位 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-tarot-gold mb-1.5">
+                            <i class="fa-solid fa-rotate"></i> 牌卡正逆位設定
+                        </label>
+                        <select id="allow-reversed" class="w-full bg-tarot-bg border border-tarot-purple/50 rounded-xl px-3 py-2 text-sm text-purple-100 focus:outline-none focus:border-tarot-gold">
+                            <option value="true">啟用正逆位解讀 (推薦)</option>
+                            <option value="false">僅使用正位解讀 (初學友善)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 按鈕 -->
+                <div class="flex flex-wrap gap-3 pt-2 justify-between items-center border-t border-tarot-purple/30">
+                    <p id="spread-desc" class="text-xs text-purple-300">
+                        <i class="fa-solid fa-circle-info text-tarot-gold"></i> 請點擊洗牌，沉澱心神後點擊卡槽抽牌。
+                    </p>
+                    <button onclick="startShuffleProcess()" class="bg-gradient-to-r from-tarot-purple to-purple-600 hover:from-purple-600 hover:to-tarot-purple text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-lg border border-tarot-gold/30 hover:shadow-tarot-purple/50 transition flex items-center gap-2">
+                        <i class="fa-solid fa-shuffle"></i> 開始洗牌與切牌
+                    </button>
+                </div>
+            </div>
+
+            <!-- 牌陣桌布面 -->
+            <div id="poker-table" class="bg-tarot-purpleDark/40 border-2 border-dashed border-tarot-purple/50 rounded-3xl p-6 min-h-[380px] flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
+                
+                <!-- 洗牌與切牌動畫區 -->
+                <div id="shuffle-animation-deck" class="hidden absolute inset-0 bg-tarot-bg/95 z-20 flex flex-col items-center justify-center space-y-6">
+                    <div id="shuffle-cards-stage" class="relative w-48 h-36 flex items-center justify-center">
+                        <div id="deck-card-1" class="absolute w-24 h-36 bg-tarot-purple border-2 border-tarot-gold rounded-xl shadow-2xl flex items-center justify-center text-tarot-gold text-2xl">
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                        <div id="deck-card-2" class="absolute w-24 h-36 bg-tarot-purpleDark border-2 border-tarot-gold/70 rounded-xl shadow-xl flex items-center justify-center text-tarot-gold/80 text-xl">
+                            <i class="fa-solid fa-moon"></i>
+                        </div>
+                        <div id="deck-card-3" class="absolute w-24 h-36 bg-purple-900 border-2 border-tarot-gold/50 rounded-xl shadow-lg flex items-center justify-center text-tarot-gold/60 text-lg">
+                            <i class="fa-solid fa-sun"></i>
+                        </div>
+                    </div>
+
+                    <div class="text-center space-y-3 max-w-md px-4">
+                        <div id="shuffle-step-badge" class="inline-block bg-tarot-purple text-tarot-goldLight text-xs px-3 py-1 rounded-full border border-tarot-gold/30 font-semibold shadow-sm">
+                            第一階段：沉澱心靈與打亂牌組
+                        </div>
+                        <p id="shuffle-status-text" class="text-sm font-bold text-tarot-gold tracking-wide animate-pulse">正在進行揉牌與洗牌中...</p>
+                        
+                        <!-- 手動暫停與下一步控制按鈕 -->
+                        <button id="shuffle-step-btn" onclick="advanceShuffleStep()" class="mt-2 bg-gradient-to-r from-tarot-gold to-yellow-500 hover:from-yellow-400 hover:to-tarot-gold text-tarot-bg font-bold px-6 py-2.5 rounded-xl text-sm shadow-xl border border-tarot-goldLight hover:scale-105 transition flex items-center justify-center gap-2 mx-auto">
+                            <i class="fa-solid fa-hand"></i> <span id="shuffle-btn-text">🛑 停止洗牌，進行切牌</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 動態卡槽區域 -->
+                <div id="card-slots-container" class="w-full flex flex-wrap justify-center items-center gap-6 z-10">
+                    <!-- JS 動態生成 -->
+                </div>
+            </div>
+
+            <!-- 解讀報告 -->
+            <div id="reading-result-panel" class="hidden space-y-4">
+                <div class="flex items-center justify-between border-b border-tarot-purple/40 pb-2">
+                    <h2 class="text-lg font-bold text-tarot-gold flex items-center gap-2">
+                        <i class="fa-solid fa-feather-pointed"></i> 牌陣深度解讀報告
+                    </h2>
+                    <button onclick="saveCurrentReadingToJournal(event)" class="bg-tarot-purple/60 hover:bg-tarot-purple text-tarot-goldLight border border-tarot-gold/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-bookmark"></i> 儲存至靈感筆記
+                    </button>
+                </div>
+                <div id="reading-cards-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 動態渲染解讀 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: 牌卡百科 -->
+        <section id="tab-library" class="space-y-6 hidden">
+            <div class="bg-tarot-cardBg/80 border border-tarot-purple/40 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="relative w-full md:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-purple-400 text-sm"></i>
+                    <input type="text" id="search-input" onkeyup="filterCards()" placeholder="搜尋牌名、關鍵字或象徵..." class="w-full bg-tarot-bg border border-tarot-purple/50 rounded-xl pl-9 pr-4 py-2 text-sm text-purple-100 focus:outline-none focus:border-tarot-gold">
+                </div>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <button onclick="filterSuite('all')" class="suite-btn bg-tarot-purple text-white px-3 py-1.5 rounded-lg text-xs font-semibold">全部牌組 (78張)</button>
+                    <button onclick="filterSuite('major')" class="suite-btn bg-tarot-bg hover:bg-tarot-purple/40 text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold">大阿爾克那 (22張)</button>
+                    <button onclick="filterSuite('wands')" class="suite-btn bg-tarot-bg hover:bg-tarot-purple/40 text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold">權杖 (火)</button>
+                    <button onclick="filterSuite('cups')" class="suite-btn bg-tarot-bg hover:bg-tarot-purple/40 text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold">聖杯 (水)</button>
+                    <button onclick="filterSuite('swords')" class="suite-btn bg-tarot-bg hover:bg-tarot-purple/40 text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold">寶劍 (風)</button>
+                    <button onclick="filterSuite('pentacles')" class="suite-btn bg-tarot-bg hover:bg-tarot-purple/40 text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold">錢幣 (地)</button>
+                </div>
+            </div>
+
+            <div id="card-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+        </section>
+
+        <!-- TAB 3: 記憶測驗 -->
+        <section id="tab-quiz" class="space-y-6 hidden">
+            <div class="max-w-2xl mx-auto bg-tarot-cardBg/90 border border-tarot-purple/40 rounded-2xl p-6 shadow-2xl text-center space-y-6">
+                <div class="inline-block bg-tarot-purple/40 text-tarot-gold px-3 py-1 rounded-full text-xs font-semibold border border-tarot-gold/30">
+                    <i class="fa-solid fa-graduation-cap"></i> 牌義聯想與直覺測驗
+                </div>
+                
+                <div id="quiz-card-container" class="flex flex-col items-center justify-center space-y-3">
+                    <div id="quiz-card-img-wrapper" class="w-32 h-52 rounded-xl border-2 border-tarot-gold overflow-hidden shadow-xl relative cursor-pointer" onclick="zoomCurrentQuizCard()">
+                        <div id="quiz-card-visual" class="w-full h-full"></div>
+                    </div>
+                    <h3 id="quiz-card-title" class="text-xl font-bold text-tarot-gold">?</h3>
+                    <p id="quiz-prompt" class="text-sm text-purple-200">請問這張牌的正位核心關鍵字是以下哪一個？</p>
+                </div>
+
+                <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left"></div>
+
+                <div id="quiz-feedback" class="hidden p-4 rounded-xl border text-sm font-semibold"></div>
+
+                <button onclick="generateNextQuiz()" class="bg-tarot-purple hover:bg-purple-600 text-white font-semibold px-6 py-2 rounded-xl text-sm transition">
+                    下一題測驗 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 4: 靈感筆記 -->
+        <section id="tab-journal" class="space-y-6 hidden">
+            <div class="bg-tarot-cardBg/80 border border-tarot-purple/40 rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b border-tarot-purple/40 pb-3">
+                    <h2 class="text-lg font-bold text-tarot-gold flex items-center gap-2">
+                        <i class="fa-solid fa-book-open-reader"></i> 我的塔羅占卜與學習紀錄
+                    </h2>
+                    <button onclick="clearJournal()" class="text-xs text-red-400 hover:text-red-300 transition">
+                        <i class="fa-solid fa-trash-can"></i> 清除紀錄
+                    </button>
+                </div>
+
+                <div id="journal-entries" class="space-y-4">
+                    <p class="text-sm text-purple-300 text-center py-8">目前尚無筆記。在「抽牌實驗室」完成抽牌後，點擊「儲存至靈感筆記」即可記錄於此。</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal 模組 -->
+    <div id="image-lightbox" class="fixed inset-0 z-50 bg-black/90 hidden backdrop-blur-md flex flex-col items-center justify-center p-4">
+        <button onclick="closeImageZoom()" class="absolute top-4 right-4 text-white hover:text-tarot-gold text-2xl transition z-50">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="relative max-w-full max-h-[80vh] overflow-auto flex items-center justify-center p-2">
+            <img id="lightbox-img" src="" alt="Full Card" class="max-h-[75vh] object-contain rounded-xl border-2 border-tarot-gold shadow-2xl transition-transform duration-200">
+        </div>
+        <div class="mt-4 flex items-center gap-3 bg-tarot-cardBg/80 px-4 py-2 rounded-xl border border-tarot-purple/50">
+            <button onclick="zoomAdjust(-0.25)" class="text-purple-200 hover:text-tarot-gold text-lg px-2"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <span id="zoom-level-text" class="text-xs font-semibold text-tarot-gold">100%</span>
+            <button onclick="zoomAdjust(0.25)" class="text-purple-200 hover:text-tarot-gold text-lg px-2"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button onclick="resetZoom()" class="text-xs text-purple-300 hover:text-white border-l border-tarot-purple/40 pl-3">重設</button>
+        </div>
+        <p id="lightbox-title" class="text-sm font-semibold text-tarot-goldLight mt-2"></p>
+    </div>
+
+    <div id="card-modal" class="fixed inset-0 z-40 bg-black/70 hidden backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-tarot-cardBg border-2 border-tarot-gold/50 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl space-y-4">
+            <button onclick="closeCardModal()" class="absolute top-4 right-4 text-purple-300 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // 元素風格設定 mapping
+        const elementThemeMap = {
+            '風': { bgFrom: '#1e1b4b', bgTo: '#312e81', textGold: '#fde68a', border: '#a855f7', symbol: '🌪️' },
+            '水': { bgFrom: '#0c4a6e', bgTo: '#075985', textGold: '#fde68a', border: '#38bdf8', symbol: '🌊' },
+            '火': { bgFrom: '#451a03', bgTo: '#7c2d12', textGold: '#fde68a', border: '#f97316', symbol: '🔥' },
+            '地': { bgFrom: '#064e3b', bgTo: '#047857', textGold: '#fde68a', border: '#34d399', symbol: '🌱' }
+        };
+
+        const spreadsConfig = {
+            single: {
+                name: '單張每日指引',
+                desc: '簡潔直接，適合抽取今日運勢、單一問題的核心解答與指引。',
+                positions: ['核心指引']
+            },
+            three: {
+                name: '三張時間軸牌陣',
+                desc: '剖析時間脈絡與事件演進，縱觀問題的前因後果與未來趨勢。',
+                positions: ['過去 (前因)', '現在 (現況)', '未來 (趨勢)']
+            },
+            choice: {
+                name: '二選一抉擇牌陣',
+                desc: '當面臨兩難抉擇時，全方位比較兩個不同選項的發展過程與最終結果。',
+                positions: ['目前現況', '選項A 過程發展', '選項B 過程發展', '選項A 最終結果', '選項B 最終結果']
+            },
+            hexagram: {
+                name: '六芒星深度牌陣',
+                desc: '全方位深度剖析複雜課題，涵蓋過去、現在、未來、對策與環境影響。',
+                positions: ['過去影響', '現在狀況', '未來趨勢', '建議對策', '周圍環境', '內在態度', '最終結果']
+            }
+        };
+
+        // 完整的 78 張牌庫資料結構
+        const rawMajor = [
+            { id: 'm00', name: '0. 愚者 (The Fool)', element: '風', suite: 'major', filename: 'RWS_Tarot_00_Fool.jpg', icon: 'fa-feather', keywords: ['新的開始', '冒險', '純真'], symbol: '站在懸崖邊的年輕人，小狗伴隨，代表勇氣與未知的旅程。', upright: '充滿可能性、勇於跨出舒適圈、靈感爆發、新計畫開端。', reversed: '衝動魯莽、不負責任、缺乏準備、風險過高。' },
+            { id: 'm01', name: 'I. 魔術師 (The Magician)', element: '風', suite: 'major', filename: 'RWS_Tarot_01_Magician.jpg', icon: 'fa-wand-magic-sparkles', keywords: ['創造力', '顯化', '資源整合'], symbol: '桌上擺放四元素聖物，一手指天一手指地，代表能量轉化。', upright: '掌握資源、展現才華、執行力強、溝通無礙。', reversed: '欺瞞耍弄、才華受限、資源不足、缺乏誠意。' },
+            { id: 'm02', name: 'II. 女祭司 (The High Priestess)', element: '水', suite: 'major', filename: 'RWS_Tarot_02_High_Priestess.jpg', icon: 'fa-scroll', keywords: ['直覺', '潛意識', '智慧'], symbol: '坐在黑白雙柱之間，手持智慧卷軸，腳踏石灣月。', upright: '內省沉澱、直覺敏銳、保持距離、秘密與靈性。', reversed: '壓抑情緒、冷漠疏離、猜忌多疑、忽視直覺。' },
+            { id: 'm03', name: 'III. 皇后 (The Empress)', element: '地', suite: 'major', filename: 'RWS_Tarot_03_Empress.jpg', icon: 'fa-crown', keywords: ['豐盛', '滋養', '愛與美'], symbol: '坐在麥田中的豐滿皇后，金星符號陪伴，象徵大自然與豐收。', upright: '物質豐盛、享受生活、情感滋潤、母性包容。', reversed: '過度依賴、浪費奢靡、感情停滯、創造力受阻。' },
+            { id: 'm04', name: 'IV. 皇帝 (The Emperor)', element: '火', suite: 'major', filename: 'RWS_Tarot_04_Emperor.jpg', icon: 'fa-chess-king', keywords: ['秩序', '權力', '領導力'], symbol: '威嚴坐於石雕白羊座寶座上的君王，手持權杖。', upright: '建立規則、有遠見的掌控者、穩固實力、可靠依靠。', reversed: '獨裁專制、缺乏彈性、掌控欲過強、缺乏安全感。' },
+            { id: 'm05', name: 'V. 教皇 (The Hierophant)', element: '地', suite: 'major', filename: 'RWS_Tarot_05_Hierophant.jpg', icon: 'fa-hands-praying', keywords: ['傳統', '引導', '體制'], symbol: '坐在神聖殿堂傳授知識的長者，兩位信徒隨伺。', upright: '尋求專業指導、遵守體制規範、獲得貴人相助、心靈指引。', reversed: '打破傳統、思想固執、權威壓迫、不合時宜。' },
+            { id: 'm06', name: 'VI. 戀人 (The Lovers)', element: '風', suite: 'major', filename: 'RWS_Tarot_06_Lovers.jpg', icon: 'fa-heart', keywords: ['選擇', '契合', '合作'], symbol: '天使拉斐爾祝福下的亞當與夏娃，象徵愛與重大選擇。', upright: '親密關係、和諧合作、價值觀一致、重要的抉擇。', reversed: '意見分歧、價值觀衝突、抉擇困難、缺乏承諾。' },
+            { id: 'm07', name: 'VII. 戰車 (The Chariot)', element: '水', suite: 'major', filename: 'RWS_Tarot_07_Chariot.jpg', icon: 'fa-shield-halved', keywords: ['意志力', '突破', '勝利'], symbol: '戰士駕馭黑白兩隻獅身人面獸，依靠意志強行推進。', upright: '克服困難、意志堅定、目標明確、取得階段性勝利。', reversed: '失控偏航、脾氣暴躁、方向迷失、受挫挫敗。' },
+            { id: 'm08', name: 'VIII. 力量 (Strength)', element: '火', suite: 'major', filename: 'RWS_Tarot_08_Strength.jpg', icon: 'fa-face-smile-beam', keywords: ['柔順', '勇氣', '包容'], symbol: '白衣女子以溫柔的手撫摸雄獅，頭頂無限符號。', upright: '以柔克剛、內在勇氣、情緒管理、有耐性地克服挑戰。', reversed: '自信不足、情緒失控、軟弱妥協、恐懼不安。' },
+            { id: 'm09', name: 'IX. 隱士 (The Hermit)', element: '地', suite: 'major', filename: 'RWS_Tarot_09_Hermit.jpg', icon: 'fa-lightbulb', keywords: ['探索', '孤獨', '尋求真理'], symbol: '老者高舉明燈手握長杖，站在孤獨雪山頂端。', upright: '獨立思考、專注尋求內在真理、離群索居、深謀遠慮。', reversed: '過度孤僻、逃避現實、與世隔絕、偏執頑固。' },
+            { id: 'm10', name: 'X. 命運之輪 (Wheel of Fortune)', element: '火', suite: 'major', filename: 'RWS_Tarot_10_Wheel_of_Fortune.jpg', icon: 'fa-dharmachakra', keywords: ['轉機', '宿命', '週期'], symbol: '轉動的命運輪盤，四角四聖獸環繞，象徵不可逆的宇宙律動。', upright: '迎來轉機、順應天時、好運降臨、階段轉換。', reversed: '抗拒改變、阻礙延遲、時機未到、運勢低迷。' },
+            { id: 'm11', name: 'XI. 正義 (Justice)', element: '風', suite: 'major', filename: 'RWS_Tarot_11_Justice.jpg', icon: 'fa-scale-balanced', keywords: ['公平', '因果', '理智'], symbol: '右手持劍左手持秤的女神，端坐於紫帷之前。', upright: '客觀公正、因果法則、理性抉擇、合約順利。', reversed: '不公不義、偏見強詞、逃避責任、法律糾紛。' },
+            { id: 'm12', name: 'XII. 倒吊人 (The Hanged Man)', element: '水', suite: 'major', filename: 'RWS_Tarot_12_Hanged_Man.jpg', icon: 'fa-anchor', keywords: ['換位思考', '順應', '犧牲'], symbol: '倒懸於生命之樹上的男子，頭頂散發智慧光芒。', upright: '換個角度看世界、甘願奉獻、沉澱等待最佳時機。', reversed: '無謂犧牲、徒勞無功、固執己見、消極等待。' },
+            { id: 'm13', name: 'XIII. 死神 (Death)', element: '水', suite: 'major', filename: 'RWS_Tarot_13_Death.jpg', icon: 'fa-skull', keywords: ['結束', '轉變', '重生'], symbol: '騎著白馬的黑甲死神，前方曙光升起，舊事物迎來終結。', upright: '徹底結束舊階段、去蕪存菁、迎向重生與嶄新開端。', reversed: '恐懼改變、拖泥帶水、沉溺過去、僵局難解。' },
+            { id: 'm14', name: 'XIV. 節制 (Temperance)', element: '火', suite: 'major', filename: 'RWS_Tarot_14_Temperance.jpg', icon: 'fa-glass-water', keywords: ['調和', '平衡', '溝通'], symbol: '大天使將雙杯中的水相互倒換流轉，單腳踩入水中。', upright: '情感調和、溝通順暢、溫和平衡、跨界融合。', reversed: '失衡極端、溝通不良、缺乏耐性、配合困難。' },
+            { id: 'm15', name: 'XV. 惡魔 (The Devil)', element: '地', suite: 'major', filename: 'RWS_Tarot_15_Devil.jpg', icon: 'fa-gem', keywords: ['慾望', '束縛', '執著'], symbol: '惡魔雕像之下，男女被鬆弛的鐵鍊繫住，象徵自願的束縛。', upright: '物質與肉體誘惑、過度執著、依戀關係、短期功利。', reversed: '擺脫束縛、覺醒看清現實、解脫壞習慣。' },
+            { id: 'm16', name: 'XVI. 高塔 (The Tower)', element: '火', suite: 'major', filename: 'RWS_Tarot_16_Tower.jpg', icon: 'fa-bolt', keywords: ['突變', '震撼', '破除幻想'], symbol: '雷電擊中高塔，冠冕掉落，象徵虛幻基石的瞬間崩塌。', upright: '突如其來的衝擊、幻象破滅、危機轉化為重建契約。', reversed: '緊抓不放、延緩爆發、恐懼劇變、苟延殘喘。' },
+            { id: 'm17', name: 'XVII. 星星 (The Star)', element: '風', suite: 'major', filename: 'RWS_Tarot_17_Star.jpg', icon: 'fa-star', keywords: ['希望', '療癒', '靈感'], symbol: '裸女倒水於陸地與池塘，上方八角大星熠熠生輝。', upright: '獲得平靜療癒、充滿希望未來、靈感泉湧、遠景光明。', reversed: '希望落空、信心受挫、灰心喪志、目標渺茫。' },
+            { id: 'm18', name: 'XVIII. 月亮 (The Moon)', element: '水', suite: 'major', filename: 'RWS_Tarot_18_Moon.jpg', icon: 'fa-moon', keywords: ['不安', '潛意識', '迷茫'], symbol: '月亮俯瞰狼與狗吠叫，龍蝦自水中爬出，充滿迷霧。', upright: '焦慮不安、前景不明、潛意識浮現、情緒波動。', reversed: '撥雲見日、真相大白、克服恐懼、迷霧消散。' },
+            { id: 'm19', name: 'XIX. 太陽 (The Sun)', element: '火', suite: 'major', filename: 'RWS_Tarot_19_Sun.jpg', icon: 'fa-sun', keywords: ['成功', '喜悅', '生命力'], symbol: '向日葵花園前，赤裸小孩騎著白馬歡慶於陽光下。', upright: '充滿活力、成功順利、歡喜坦誠、豐收結果。', reversed: '暫時陰霾、延遲成功、熱情稍退、童心受挫。' },
+            { id: 'm20', name: 'XX. 審判 (Judgement)', element: '火', suite: 'major', filename: 'RWS_Tarot_20_Judgement.jpg', icon: 'fa-bullhorn', keywords: ['召喚', '覺醒', '重大決定'], symbol: '天使吹響號角，棺木中的人們甦醒舉手回應。', upright: '召喚與覺醒、重要轉折點、迎來最終評估、重獲新生。', reversed: '自我懷疑、逃避召喚、悔恨過去、猶豫不決。' },
+            { id: 'm21', name: 'XXI. 世界 (The World)', element: '地', suite: 'major', filename: 'RWS_Tarot_21_World.jpg', icon: 'fa-globe', keywords: ['圓滿', '完成', '完美週期'], symbol: '桂冠花環中舞動的女神，四角聖獸隨伺，象徵圓滿成功。', upright: '圓滿達成目標、階段大功告成、視野廣闊、旅行成功。', reversed: '未竟之業、缺乏最後一哩路、卡在瓶頸、美中不足。' }
+        ];
+
+        // 動態產生 56 張小阿爾克那
+        function generateMinorArcana() {
+            const suites = [
+                { name: '權杖', element: '火', key: 'wands', prefix: 'Wands', icon: 'fa-fire' },
+                { name: '聖杯', element: '水', key: 'cups', prefix: 'Cups', icon: 'fa-droplet' },
+                { name: '寶劍', element: '風', key: 'swords', prefix: 'Swords', icon: 'fa-wind' },
+                { name: '錢幣', element: '地', key: 'pentacles', prefix: 'Pents', icon: 'fa-coins' }
+            ];
+
+            const rankNames = ['Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Page', 'Knight', 'Queen', 'King'];
+            const rankZH = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '侍者', '騎士', '皇后', '國王'];
+
+            const suiteKeywords = {
+                wands: {
+                    Ace: ['熱情萌芽', '行動契機'], Two: ['遠景規劃', '跨出舒適圈'], Three: ['拓展版圖', '遠航探索'],
+                    Four: ['歡慶鞏固', '安定和諧'], Five: ['意見分歧', '良性競爭'], Six: ['勝利凱旋', '獲得認可'],
+                    Seven: ['堅守立場', '力挽狂瀾'], Eight: ['迅速推進', '訊息交流'], Nine: ['強大韌性', '警戒堅持'],
+                    Ten: ['責任過重', '負重前行'], Page: ['好奇探索', '熱情訊息'], Knight: ['衝鋒陷陣', '熱血冒險'],
+                    Queen: ['自信魅力', '熱情滋養'], King: ['願景領袖', '號召開拓']
+                },
+                cups: {
+                    Ace: ['情感豐沛', '愛之萌芽'], Two: ['契合交流', '合作夥伴'], Three: ['歡聚分享', '友誼連結'],
+                    Four: ['沉思倦怠', '忽視機會'], Five: ['沉溺悲傷', '關注失去'], Six: ['溫馨回憶', '童心餽贈'],
+                    Seven: ['幻象選擇', '白日夢想'], Eight: ['轉身離去', '尋求更高'], Nine: ['心滿意足', '願望實現'],
+                    Ten: ['家庭圓滿', '情感豐收'], Page: ['溫柔訊息', '感性萌芽'], Knight: ['浪漫追求', '情感邀約'],
+                    Queen: ['直覺同理', '溫柔包容'], King: ['情感掌控', '包容穩重']
+                },
+                swords: {
+                    Ace: ['理智突破', '清晰決策'], Two: ['抗拒決策', '內心盲點'], Three: ['心碎痛苦', '理智割捨'],
+                    Four: ['休養生息', '靜心思考'], Five: ['惡性爭執', '兩敗俱傷'], Six: ['渡過難關', '漸入佳境'],
+                    Seven: ['走捷徑', '謀略思維'], Eight: ['自我束縛', '思考困局'], Nine: ['焦慮失眠', '惡夢壓力'],
+                    Ten: ['谷底痛擊', '結束解脫'], Page: ['敏銳警惕', '資訊蒐集'], Knight: ['勇猛果敢', '直言不諱'],
+                    Queen: ['獨立理智', '洞察真相'], King: ['權威決斷', '專業客觀']
+                },
+                pentacles: {
+                    Ace: ['物質契機', '實務起步'], Two: ['收支平衡', '靈活彈性'], Three: ['團隊合作', '專業技術'],
+                    Four: ['保守防禦', '鞏固資源'], Five: ['資源匱乏', '困頓求助'], Six: ['施予接受', '公平分配'],
+                    Seven: ['審慎評估', '靜待豐收'], Eight: ['精益求精', '專注職人'], Nine: ['物質優渥', '自給自足'],
+                    Ten: ['家族傳承', '基業穩固'], Page: ['踏實學習', '務實起步'], Knight: ['沉穩可靠', '持之以恆'],
+                    Queen: ['溫暖滋養', '務實管理'], King: ['商業帝國', '豐盛穩固']
+                }
+            };
+
+            let result = [];
+            suites.forEach(suite => {
+                rankNames.forEach((rank, idx) => {
+                    const numStr = (idx + 1) < 10 ? `0${idx + 1}` : `${idx + 1}`;
+                    const filename = `${suite.prefix}${numStr}.jpg`;
+                    const cardName = `${suite.name}${rankZH[idx]} (${rank} of ${suite.name === '權杖' ? 'Wands' : suite.name === '聖杯' ? 'Cups' : suite.name === '寶劍' ? 'Swords' : 'Pentacles'})`;
+                    const kw = suiteKeywords[suite.key][rank] || ['發展良好', '穩定累積'];
+
+                    result.push({
+                        id: `${suite.key}_${rank.toLowerCase()}`,
+                        name: cardName,
+                        element: suite.element,
+                        suite: suite.key,
+                        filename: filename,
+                        icon: suite.icon,
+                        keywords: kw,
+                        symbol: `象徵${suite.element}元素在${rankZH[idx]}階段的發展與展現。`,
+                        upright: `表現出強烈且正面健康的${kw[0]}狀態，適合順勢發揮。`,
+                        reversed: `提示過度或缺乏${kw[0]}，需要調整步調與心態。`
+                    });
+                });
+            });
+            return result;
+        }
+
+        const tarotDatabase = [...rawMajor, ...generateMinorArcana()];
+
+        // 全局應用狀態
+        let currentSpread = 'single';
+        let drawnCards = [];
+        let activeDomain = 'general';
+        let quizCurrentCard = null;
+        let currentModalCard = null;
+        let lightboxScale = 1;
+        let currentShuffleStep = 0; // 0: 待機, 1: 洗牌中, 2: 切牌中
+        let journalInMemory = [];
+
+        function switchTab(tabId) {
+            ['lab', 'library', 'quiz', 'journal'].forEach(id => {
+                const tabEl = document.getElementById(`tab-${id}`);
+                const navBtn = document.getElementById(`nav-${id}`);
+                if (tabEl) tabEl.classList.add('hidden');
+                if (navBtn) {
+                    navBtn.classList.remove('bg-tarot-purple', 'text-white');
+                    navBtn.classList.add('text-purple-300');
+                }
+            });
+
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            const targetNav = document.getElementById(`nav-${tabId}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+            if (targetNav) {
+                targetNav.classList.add('bg-tarot-purple', 'text-white');
+                targetNav.classList.remove('text-purple-300');
+            }
+        }
+
+        function handleCardImgError(imgEl, filename) {
+            if (!imgEl.dataset.retryCount) {
+                imgEl.dataset.retryCount = "1";
+                imgEl.src = `https://raw.githubusercontent.com/gregf/tarot-api/master/static/cards/${filename}`;
+            } else if (imgEl.dataset.retryCount === "1") {
+                imgEl.dataset.retryCount = "2";
+                imgEl.src = `https://www.sacred-texts.com/tarot/pkt/img/${filename.toLowerCase()}`;
+            } else {
+                imgEl.style.display = 'none';
+            }
+        }
+
+        function renderCardVisual(card, extraImgClass = '', extraStyle = '') {
+            const theme = elementThemeMap[card.element] || { bgFrom: '#180e29', bgTo: '#2a1745', textGold: '#f3ca65', border: '#f3ca65', symbol: '✨' };
+            const cardFilename = card.filename || 'RWS_Tarot_00_Fool.jpg';
+            const imgUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${cardFilename}`;
+
+            return `
+                <div class="relative w-full h-full rounded-lg overflow-hidden flex flex-col items-center justify-between p-2 border border-tarot-gold/40 shadow-inner transition duration-300 select-none" 
+                     style="background: linear-gradient(135deg, ${theme.bgFrom} 0%, ${theme.bgTo} 100%); ${extraStyle}">
+                    
+                    <img src="${imgUrl}" alt="${card.name}" class="${extraImgClass} w-full h-full object-cover absolute inset-0 z-10" 
+                         onerror="handleCardImgError(this, '${cardFilename}')">
+
+                    <div class="absolute inset-0 flex flex-col items-center justify-between p-2 text-center pointer-events-none z-0">
+                        <div class="w-full flex justify-between items-center text-[10px]" style="color: ${theme.textGold}">
+                            <span>${theme.symbol} ${card.element}</span>
+                            <span class="font-bold tracking-widest">${card.id.toUpperCase()}</span>
+                        </div>
+                        <div class="my-auto flex flex-col items-center">
+                            <div class="w-10 h-10 rounded-full border border-tarot-gold/50 flex items-center justify-center text-xl shadow-md my-1" style="color: ${theme.textGold}; background: rgba(0,0,0,0.3)">
+                                <i class="fa-solid ${card.icon}"></i>
+                            </div>
+                            <span class="text-[11px] font-bold mt-0.5 px-1 line-clamp-1" style="color: ${theme.textGold}">${card.name.split(' ')[0]}</span>
+                        </div>
+                        <div class="w-full border-t border-tarot-gold/30 pt-1 text-[9px] opacity-80 truncate" style="color: ${theme.textGold}">
+                            ${card.keywords[0]}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startShuffleProcess() {
+            const animationDeck = document.getElementById('shuffle-animation-deck');
+            const card1 = document.getElementById('deck-card-1');
+            const card2 = document.getElementById('deck-card-2');
+            const card3 = document.getElementById('deck-card-3');
+            const statusText = document.getElementById('shuffle-status-text');
+            const stepBadge = document.getElementById('shuffle-step-badge');
+            const btnText = document.getElementById('shuffle-btn-text');
+
+            currentShuffleStep = 1;
+            animationDeck.classList.remove('hidden');
+            
+            stepBadge.innerText = '第一階段：靜心與打亂牌組';
+            statusText.innerText = '正在進行揉牌與洗牌中... 心中請默念你的問題，準備好時點擊按鈕。';
+            btnText.innerText = '🛑 停止洗牌，進行切牌';
+
+            card1.className = 'absolute w-24 h-36 bg-tarot-purple border-2 border-tarot-gold rounded-xl shadow-2xl flex items-center justify-center text-tarot-gold text-2xl animate-scatter-left';
+            card2.className = 'absolute w-24 h-36 bg-tarot-purpleDark border-2 border-tarot-gold/70 rounded-xl shadow-xl flex items-center justify-center text-tarot-gold/80 text-xl animate-swirl';
+            card3.className = 'absolute w-24 h-36 bg-purple-900 border-2 border-tarot-gold/50 rounded-xl shadow-lg flex items-center justify-center text-tarot-gold/60 text-lg animate-scatter-right';
+        }
+
+        function advanceShuffleStep() {
+            const animationDeck = document.getElementById('shuffle-animation-deck');
+            const card1 = document.getElementById('deck-card-1');
+            const card2 = document.getElementById('deck-card-2');
+            const card3 = document.getElementById('deck-card-3');
+            const statusText = document.getElementById('shuffle-status-text');
+            const stepBadge = document.getElementById('shuffle-step-badge');
+            const btnText = document.getElementById('shuffle-btn-text');
+            const readerTarget = document.getElementById('reader-target').value;
+
+            if (currentShuffleStep === 1) {
+                currentShuffleStep = 2;
+                stepBadge.innerText = '第二階段：皮耶法則切牌與收正';
+                if (readerTarget === 'self') {
+                    statusText.innerText = '占卜對象：【自己】— 依皮耶法則向左旋轉 90 度切牌收正中...';
+                    card1.className = 'absolute w-24 h-36 bg-tarot-purple border-2 border-tarot-gold rounded-xl shadow-2xl flex items-center justify-center text-tarot-gold text-2xl animate-pierrot-self';
+                } else {
+                    statusText.innerText = '占卜對象：【對象/案主】— 依皮耶法則向右旋轉 90 度切牌收正中...';
+                    card1.className = 'absolute w-24 h-36 bg-tarot-purple border-2 border-tarot-gold rounded-xl shadow-2xl flex items-center justify-center text-tarot-gold text-2xl animate-pierrot-other';
+                }
+                card2.className = 'absolute w-24 h-36 opacity-30 bg-tarot-purpleDark border border-tarot-gold rounded-xl';
+                card3.className = 'absolute w-24 h-36 opacity-10 bg-purple-900 border border-tarot-gold rounded-xl';
+                btnText.innerText = '✨ 完成切牌，開始發牌';
+            } else if (currentShuffleStep === 2) {
+                currentShuffleStep = 0;
+                animationDeck.classList.add('hidden');
+                renderSlotsWithDealAnimation();
+            }
+        }
+
+        function renderSlotsWithDealAnimation() {
+            const config = spreadsConfig[currentSpread] || spreadsConfig['single'];
+            const container = document.getElementById('card-slots-container');
+            const resultPanel = document.getElementById('reading-result-panel');
+            
+            if (resultPanel) resultPanel.classList.add('hidden');
+            drawnCards = new Array(config.positions.length).fill(null);
+            
+            if (!container) return;
+            container.innerHTML = '';
+            
+            config.positions.forEach((posName, index) => {
+                container.innerHTML += `
+                    <div class="flex flex-col items-center space-y-2 animate-deal-card" style="animation-delay: ${index * 0.12}s">
+                        <div class="text-xs font-semibold text-tarot-gold bg-tarot-cardBg/90 px-3 py-1 rounded-full border border-tarot-gold/30 shadow-sm text-center">
+                            ${index + 1}. ${posName}
+                        </div>
+                        <div id="card-slot-${index}" onclick="drawCardToSlot(${index})" 
+                             class="card-perspective w-28 h-44 sm:w-32 sm:h-52 cursor-pointer group">
+                            <div id="card-inner-${index}" class="card-inner relative w-full h-full rounded-xl shadow-2xl">
+                                <div class="card-front absolute inset-0 bg-gradient-to-br from-tarot-purple to-tarot-purpleDark border-2 border-tarot-gold rounded-xl flex flex-col items-center justify-center p-2 text-center shadow-lg group-hover:scale-105 transition-transform duration-200">
+                                    <div class="w-12 h-12 rounded-full border border-tarot-gold/50 flex items-center justify-center text-tarot-gold text-2xl mb-1">
+                                        <i class="fa-solid fa-star"></i>
+                                    </div>
+                                    <span class="text-[11px] font-bold text-tarot-goldLight">點擊翻牌</span>
+                                    <span class="text-[9px] text-purple-300 mt-1">${posName}</span>
+                                </div>
+                                <div id="card-front-content-${index}" class="card-back absolute inset-0 rounded-xl overflow-hidden">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function drawCardToSlot(slotIndex) {
+            if (drawnCards[slotIndex]) {
+                openCardModal(drawnCards[slotIndex].card.id);
+                return;
+            }
+
+            const usedCardIds = drawnCards.filter(Boolean).map(d => d.card.id);
+            const availableCards = tarotDatabase.filter(c => !usedCardIds.includes(c.id));
+            
+            if (availableCards.length === 0) return;
+
+            const selectedCard = availableCards[Math.floor(Math.random() * availableCards.length)];
+            const allowReversed = document.getElementById('allow-reversed').value === 'true';
+            const isReversed = allowReversed ? Math.random() < 0.5 : false;
+
+            drawnCards[slotIndex] = {
+                card: selectedCard,
+                isReversed: isReversed
+            };
+
+            const frontContent = document.getElementById(`card-front-content-${slotIndex}`);
+            if (frontContent) {
+                frontContent.innerHTML = renderCardVisual(selectedCard, 'w-full h-full object-cover');
+            }
+
+            const cardInner = document.getElementById(`card-inner-${slotIndex}`);
+            if (cardInner) {
+                if (isReversed) {
+                    cardInner.classList.add('is-reversed');
+                } else {
+                    cardInner.classList.add('is-flipped');
+                }
+                if (cardInner.parentElement) {
+                    cardInner.parentElement.classList.add('glow-reveal');
+                }
+            }
+
+            updateReadingResultsPanel();
+        }
+
+        function getDomainInterpretation(card, domainKey, isReversed) {
+            const baseText = isReversed ? card.reversed : card.upright;
+            const domainPrefixes = {
+                general: '【身心靈指引】',
+                love: '【感情關係】',
+                work: '【職場事業】',
+                study: '【課業學習】',
+                fortune: '【財務運勢】'
+            };
+
+            const domainTips = {
+                general: '著重當下心理狀態與內在能量平衡。',
+                love: '反映兩人互動、溝通品質與情感承諾狀態。',
+                work: '關乎執行力、職場人際與職涯決策發展。',
+                study: '影響學習專注度、理解力與考試發揮。',
+                fortune: '指示投資風險、收支平衡與實質資源運用。'
+            };
+
+            return `${domainPrefixes[domainKey] || ''} ${baseText} (${domainTips[domainKey] || ''})`;
+        }
+
+        function updateReadingResultsPanel() {
+            const panel = document.getElementById('reading-result-panel');
+            const cardsList = document.getElementById('reading-cards-list');
+            const config = spreadsConfig[currentSpread];
+            activeDomain = document.getElementById('domain-select').value;
+
+            cardsList.innerHTML = '';
+            let hasDrawn = false;
+
+            drawnCards.forEach((drawn, index) => {
+                if (!drawn) return;
+                hasDrawn = true;
+                const { card, isReversed } = drawn;
+                const posName = config.positions[index];
+                const domainText = getDomainInterpretation(card, activeDomain, isReversed);
+
+                cardsList.innerHTML += `
+                    <div class="bg-tarot-cardBg/90 border border-tarot-purple/50 rounded-xl p-4 flex gap-4 items-start shadow-lg">
+                        <div onclick="openImageZoom('https://commons.wikimedia.org/wiki/Special:FilePath/${card.filename}', '${card.name}')" class="w-20 h-32 rounded-lg border border-tarot-gold overflow-hidden flex-shrink-0 cursor-pointer relative group ${isReversed ? 'rotate-180' : ''}">
+                            ${renderCardVisual(card)}
+                        </div>
+                        <div class="space-y-1.5 flex-grow text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-tarot-gold font-semibold bg-tarot-purple/40 px-2 py-0.5 rounded border border-tarot-gold/30">${posName}</span>
+                                <span class="font-bold ${isReversed ? 'text-red-400' : 'text-green-400'}">${isReversed ? '逆位 🙃' : '正位 ☀️'}</span>
+                            </div>
+                            <h4 class="text-sm font-bold text-tarot-goldLight cursor-pointer hover:underline" onclick="openCardModal('${card.id}')">${card.name}</h4>
+                            <p class="text-purple-200 leading-relaxed"><strong class="text-tarot-gold">情境指引：</strong>${domainText}</p>
+                            <p class="text-purple-300"><strong class="text-tarot-gold">核心象徵：</strong>${card.symbol}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (hasDrawn) panel.classList.remove('hidden');
+        }
+
+        function updateDomainContext() {
+            updateReadingResultsPanel();
+        }
+
+        function changeSpread() {
+            currentSpread = document.getElementById('spread-select').value;
+            const config = spreadsConfig[currentSpread];
+            if (config) {
+                document.getElementById('spread-desc').innerHTML = `<i class="fa-solid fa-circle-info text-tarot-gold"></i> ${config.name}：${config.desc}`;
+            }
+            renderSlotsWithDealAnimation();
+        }
+
+        function renderCardGrid(cards) {
+            const grid = document.getElementById('card-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            cards.forEach(card => {
+                grid.innerHTML += `
+                    <div onclick="openCardModal('${card.id}')" class="bg-tarot-cardBg border border-tarot-purple/40 hover:border-tarot-gold rounded-xl p-2.5 flex flex-col items-center text-center cursor-pointer transition transform hover:-translate-y-1 shadow-md group">
+                        <div class="w-full h-36 rounded-lg overflow-hidden mb-2 relative">
+                            ${renderCardVisual(card)}
+                            <button onclick="event.stopPropagation(); openImageZoom('https://commons.wikimedia.org/wiki/Special:FilePath/${card.filename}', '${card.name}')" class="absolute top-1 right-1 bg-black/60 hover:bg-tarot-purple text-tarot-gold p-1.5 rounded-full text-xs transition z-20" title="放大觀看">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                            </button>
+                        </div>
+                        <h4 class="text-xs font-bold text-tarot-goldLight truncate w-full">${card.name}</h4>
+                        <span class="text-[10px] text-purple-300 mt-0.5">${card.element}元素 | ${card.keywords[0]}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function filterSuite(suite) {
+            document.querySelectorAll('.suite-btn').forEach(btn => btn.className = 'suite-btn bg-tarot-bg hover:bg-tarot-purple/40 text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold');
+            if (event && event.target) {
+                event.target.className = 'suite-btn bg-tarot-purple text-white px-3 py-1.5 rounded-lg text-xs font-semibold';
+            }
+
+            if (suite === 'all') {
+                renderCardGrid(tarotDatabase);
+            } else {
+                const filtered = tarotDatabase.filter(c => c.suite === suite);
+                renderCardGrid(filtered);
+            }
+        }
+
+        function filterCards() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = tarotDatabase.filter(c => 
+                c.name.toLowerCase().includes(query) ||
+                c.keywords.some(k => k.toLowerCase().includes(query)) ||
+                c.symbol.toLowerCase().includes(query)
+            );
+            renderCardGrid(filtered);
+        }
+
+        function openCardModal(cardId) {
+            const card = tarotDatabase.find(c => c.id === cardId);
+            if (!card) return;
+            currentModalCard = card;
+            const modal = document.getElementById('card-modal');
+            const content = document.getElementById('modal-content');
+
+            content.innerHTML = `
+                <div class="flex flex-col sm:flex-row items-center gap-4 border-b border-tarot-purple/40 pb-4">
+                    <div onclick="openImageZoom('https://commons.wikimedia.org/wiki/Special:FilePath/${card.filename}', '${card.name}')" class="w-28 h-44 rounded-xl border-2 border-tarot-gold shadow-lg overflow-hidden flex-shrink-0 cursor-pointer relative group" title="點擊全螢幕放大">
+                        ${renderCardVisual(card)}
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1 z-30">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i> 放大圖片
+                        </div>
+                    </div>
+                    <div class="space-y-1.5 text-center sm:text-left flex-grow">
+                        <h3 class="text-xl font-bold text-tarot-gold">${card.name}</h3>
+                        <p class="text-xs text-purple-300">對應元素：<span class="text-tarot-goldLight font-semibold">${card.element}元素</span></p>
+                        <div class="flex flex-wrap justify-center sm:justify-start gap-1 pt-1">
+                            ${card.keywords.map(k => `<span class="bg-tarot-purple/50 text-tarot-goldLight text-xs px-2.5 py-0.5 rounded-full border border-tarot-gold/30">${k}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <div class="flex flex-wrap gap-1 border-b border-tarot-purple/40 pb-2">
+                        <button onclick="switchModalDomainTab('general')" id="mtab-general" class="mtab-btn active bg-tarot-purple text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">🌟 綜合指引</button>
+                        <button onclick="switchModalDomainTab('love')" id="mtab-love" class="mtab-btn bg-tarot-bg text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition">💖 感情</button>
+                        <button onclick="switchModalDomainTab('work')" id="mtab-work" class="mtab-btn bg-tarot-bg text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition">💼 事業</button>
+                        <button onclick="switchModalDomainTab('study')" id="mtab-study" class="mtab-btn bg-tarot-bg text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition">📚 課業</button>
+                        <button onclick="switchModalDomainTab('fortune')" id="mtab-fortune" class="mtab-btn bg-tarot-bg text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition">🔮 運勢</button>
+                    </div>
+
+                    <div id="modal-domain-body" class="space-y-3 text-sm text-purple-100"></div>
+
+                    <div class="bg-tarot-bg/70 p-3 rounded-xl border border-tarot-purple/40">
+                        <span class="text-xs font-bold text-tarot-gold block mb-1"><i class="fa-solid fa-eye"></i> 牌面核心象徵與視覺特徵：</span>
+                        <p class="text-xs text-purple-200 leading-relaxed">${card.symbol}</p>
+                    </div>
+                </div>
+            `;
+
+            switchModalDomainTab('general');
+            modal.classList.remove('hidden');
+        }
+
+        function switchModalDomainTab(domainKey) {
+            document.querySelectorAll('.mtab-btn').forEach(btn => btn.className = 'mtab-btn bg-tarot-bg text-purple-200 border border-tarot-purple/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition');
+            const activeBtn = document.getElementById(`mtab-${domainKey}`);
+            if (activeBtn) activeBtn.className = 'mtab-btn bg-tarot-purple text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition';
+
+            const body = document.getElementById('modal-domain-body');
+            const card = currentModalCard;
+
+            const uprightText = getDomainInterpretation(card, domainKey, false);
+            const reversedText = getDomainInterpretation(card, domainKey, true);
+
+            body.innerHTML = `
+                <div class="space-y-2">
+                    <div class="bg-tarot-bg/80 p-3 rounded-xl border-l-4 border-green-400">
+                        <span class="text-xs font-bold text-green-400 block mb-1">☀️ 正位解析：</span>
+                        <p class="text-xs text-purple-100 leading-relaxed">${uprightText}</p>
+                    </div>
+                    <div class="bg-tarot-bg/80 p-3 rounded-xl border-l-4 border-red-400">
+                        <span class="text-xs font-bold text-red-400 block mb-1">🙃 逆位解析：</span>
+                        <p class="text-xs text-purple-100 leading-relaxed">${reversedText}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function closeCardModal() {
+            document.getElementById('card-modal').classList.add('hidden');
+        }
+
+        function openImageZoom(imgSrc, title) {
+            const lightbox = document.getElementById('image-lightbox');
+            const img = document.getElementById('lightbox-img');
+            const titleEl = document.getElementById('lightbox-title');
+
+            img.src = imgSrc;
+            titleEl.innerText = title;
+            lightboxScale = 1;
+            img.style.transform = `scale(${lightboxScale})`;
+            document.getElementById('zoom-level-text').innerText = '100%';
+
+            lightbox.classList.remove('hidden');
+        }
+
+        function zoomAdjust(delta) {
+            lightboxScale = Math.max(0.5, Math.min(3, lightboxScale + delta));
+            const img = document.getElementById('lightbox-img');
+            img.style.transform = `scale(${lightboxScale})`;
+            document.getElementById('zoom-level-text').innerText = `${Math.round(lightboxScale * 100)}%`;
+        }
+
+        function resetZoom() {
+            lightboxScale = 1;
+            const img = document.getElementById('lightbox-img');
+            img.style.transform = `scale(1)`;
+            document.getElementById('zoom-level-text').innerText = '100%';
+        }
+
+        function closeImageZoom() {
+            document.getElementById('image-lightbox').classList.add('hidden');
+        }
+
+        function generateNextQuiz() {
+            const card = tarotDatabase[Math.floor(Math.random() * tarotDatabase.length)];
+            quizCurrentCard = card;
+
+            const visualContainer = document.getElementById('quiz-card-visual');
+            if (visualContainer) visualContainer.innerHTML = renderCardVisual(card);
+            
+            document.getElementById('quiz-card-title').innerText = card.name;
+            document.getElementById('quiz-feedback').classList.add('hidden');
+
+            const correctAnswer = card.keywords[0];
+            let options = [correctAnswer];
+
+            while (options.length < 4) {
+                const randCard = tarotDatabase[Math.floor(Math.random() * tarotDatabase.length)];
+                const randKw = randCard.keywords[0];
+                if (!options.includes(randKw)) options.push(randKw);
+            }
+
+            options.sort(() => Math.random() - 0.5);
+
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            options.forEach(opt => {
+                optionsContainer.innerHTML += `
+                    <button onclick="checkQuizAnswer('${opt}', '${correctAnswer}')" class="bg-tarot-bg hover:bg-tarot-purple/50 border border-tarot-purple/40 p-3 rounded-xl text-xs text-purple-100 font-semibold transition text-left">
+                        <i class="fa-regular fa-circle-dot text-tarot-gold mr-2"></i>${opt}
+                    </button>
+                `;
+            });
+        }
+
+        function checkQuizAnswer(selected, correct) {
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+
+            if (selected === correct) {
+                feedback.className = 'p-4 rounded-xl border bg-green-900/40 border-green-500 text-green-200 text-sm font-semibold';
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> 回答正確！【${quizCurrentCard.name}】的核心關鍵字即為「${correct}」。<br><span class="text-xs font-normal text-purple-200 mt-1 block">牌面象徵：${quizCurrentCard.symbol}</span>`;
+            } else {
+                feedback.className = 'p-4 rounded-xl border bg-red-900/40 border-red-500 text-red-200 text-sm font-semibold';
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> 回答錯誤！【${quizCurrentCard.name}】的正解應為「${correct}」。`;
+            }
+        }
+
+        function zoomCurrentQuizCard() {
+            if (quizCurrentCard) {
+                openImageZoom(`https://commons.wikimedia.org/wiki/Special:FilePath/${quizCurrentCard.filename}`, quizCurrentCard.name);
+            }
+        }
+
+        function getJournalEntries() {
+            try {
+                const stored = localStorage.getItem('tarot_journal');
+                return stored ? JSON.parse(stored) : journalInMemory;
+            } catch (e) {
+                return journalInMemory;
+            }
+        }
+
+        function setJournalEntries(entries) {
+            journalInMemory = entries;
+            try {
+                localStorage.setItem('tarot_journal', JSON.stringify(entries));
+            } catch (e) {
+                console.warn('LocalStorage not accessible, using memory fallback');
+            }
+        }
+
+        function saveCurrentReadingToJournal(evt) {
+            const validCards = drawnCards.filter(Boolean);
+            if (validCards.length === 0) return;
+
+            const config = spreadsConfig[currentSpread];
+            const domainSelect = document.getElementById('domain-select');
+            const domainText = domainSelect ? domainSelect.options[domainSelect.selectedIndex].text : '綜合指引';
+
+            const newEntry = {
+                id: Date.now(),
+                date: new Date().toLocaleString('zh-TW'),
+                spreadName: config ? config.name : '自訂牌陣',
+                domain: domainText,
+                cards: validCards.map(d => ({
+                    name: d.card.name,
+                    isReversed: d.isReversed
+                }))
+            };
+
+            const entries = getJournalEntries();
+            entries.unshift(newEntry);
+            setJournalEntries(entries);
+            
+            const btn = (evt && evt.currentTarget) ? evt.currentTarget : (typeof event !== 'undefined' ? event.currentTarget : null);
+            if (btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `<i class="fa-solid fa-circle-check text-green-400"></i> 已儲存至筆記`;
+                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            }
+
+            loadJournalEntries();
+        }
+
+        function loadJournalEntries() {
+            const container = document.getElementById('journal-entries');
+            if (!container) return;
+            const entries = getJournalEntries();
+
+            if (!entries || entries.length === 0) {
+                container.innerHTML = `<p class="text-sm text-purple-300 text-center py-8"><i class="fa-solid fa-box-open text-2xl text-purple-400 mb-2 block"></i>目前尚無筆記。在「抽牌實驗室」完成抽牌後，點擊「儲存至靈感筆記」即可記錄於此。</p>`;
+                return;
+            }
+
+            container.innerHTML = entries.map(entry => `
+                <div class="bg-tarot-purpleDark/60 border border-tarot-purple/50 rounded-xl p-4 space-y-3 shadow-md relative group">
+                    <div class="flex justify-between items-center border-b border-tarot-purple/30 pb-2">
+                        <div>
+                            <span class="text-xs font-bold text-tarot-gold bg-tarot-purple/60 border border-tarot-gold/30 px-2 py-0.5 rounded mr-2">${entry.spreadName}</span>
+                            <span class="text-xs text-purple-300">${entry.domain}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[11px] text-purple-400"><i class="fa-regular fa-clock mr-1"></i>${entry.date}</span>
+                            <button onclick="deleteJournalEntry(${entry.id})" class="text-xs text-red-400 hover:text-red-300 transition" title="刪除此筆記">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        ${entry.cards.map(c => `
+                            <span class="bg-tarot-bg/80 border border-tarot-purple/40 px-2.5 py-1 rounded-lg text-xs text-purple-100 flex items-center gap-1.5">
+                                <i class="fa-solid fa-layer-group text-tarot-gold text-[10px]"></i>
+                                <span class="font-semibold text-tarot-goldLight">${c.name}</span>
+                                <span class="${c.isReversed ? 'text-red-400 font-bold' : 'text-green-400 font-bold'}">(${c.isReversed ? '逆位' : '正位'})</span>
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteJournalEntry(id) {
+            let entries = getJournalEntries();
+            entries = entries.filter(item => item.id !== id);
+            setJournalEntries(entries);
+            loadJournalEntries();
+        }
+
+        function clearJournal() {
+            setJournalEntries([]);
+            loadJournalEntries();
+        }
+
+        // 頁面初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            switchTab('lab');
+            changeSpread();
+            renderCardGrid(tarotDatabase);
+            generateNextQuiz();
+            loadJournalEntries();
+        });
+    </script>
+</body>
+</html>
